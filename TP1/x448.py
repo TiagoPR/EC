@@ -1,3 +1,8 @@
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives.ciphers.algorithms import AES256
+
 import os
 from cryptography.hazmat.primitives.asymmetric.x448 import X448PrivateKey
 from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey
@@ -16,18 +21,26 @@ ed448_public_key = ed448_private_key.public_key()
 # Acordo de chaves com X448
 shared_key = x448_private_key.exchange(x448_public_key)
 
+# Perform key derivation.
+derived_key = HKDF(
+    algorithm=hashes.SHA256(),
+    length=32,
+    salt=None,
+    info=b'handshake data',
+).derive(shared_key)
+
 # Assinatura da chave compartilhada com Ed448
-signature = ed448_private_key.sign(shared_key)
+signature = ed448_private_key.sign(derived_key)
 
 # Verificação da assinatura com Ed448
 try:
-    ed448_public_key.verify(signature, shared_key)
+    ed448_public_key.verify(signature, derived_key)
     print("A assinatura é válida.")
 except:
     print("A assinatura é inválida.")
 
 # Criação do canal privado de informação com ChaCha20Poly1305
-chacha = ChaCha20Poly1305(shared_key)
+chacha = ChaCha20Poly1305(derived_key)
 
 # Dados a serem criptografados
 data = b"mensagem secreta"
