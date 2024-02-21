@@ -28,16 +28,18 @@ async def handle_echo(reader, writer):
 
     addr = writer.get_extra_info('peername')
 
-    print(f"Received {message} from {addr}")
+    print(f"Server has received {message} from client {addr}")
 
+    print("Decrypting...")
     recebido = receiver(key, nonce, associateddata, message)
 
-    print(f"Send: {recebido}")
+    print(f"Server has sent: {recebido}")
     writer.write(data)
     await writer.drain()
 
-    print("Closing the connection")
+    print("Closing the server connection")
     writer.close()
+    
 
 async def main():
     server = await asyncio.start_server(
@@ -46,24 +48,22 @@ async def main():
     addr = server.sockets[0].getsockname()
     print(f'Serving on {addr}')
 
-    async with server:
-        await server.serve_forever()
-
 # Client
 async def tcp_echo_client():
     await asyncio.sleep(3)
     reader, writer = await asyncio.open_connection(
         '127.0.0.1', 8888)
 
+    print('Encrypting...')
     cifra = emitter(plaintext, key, nonce, associateddata)
 
-    print(f'Send: {cifra}')
+    print(f'Client has sent: {cifra}')
     writer.write(cifra)
 
     data = await reader.read(100)
-    print(f'Received: {data}')
+    print(f'Client has received: {data}')
 
-    print('Closing the connection')
+    print('Closing the client connection')
     writer.close()
 
 async def run_client_and_server():
