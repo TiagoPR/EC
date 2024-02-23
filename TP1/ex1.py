@@ -31,9 +31,9 @@ async def handle_echo(reader, writer):
     print(f"Server has received {message} from client {addr}")
 
     print("Decrypting...")
-    recebido = receiver(key, nonce, associateddata, message)
+    data = receiver(key, nonce, associateddata, message)
 
-    print(f"Server has sent: {recebido}")
+    print(f"Server has sent: {data}")
     writer.write(data)
     await writer.drain()
 
@@ -53,6 +53,8 @@ async def tcp_echo_client():
     await asyncio.sleep(3)
     reader, writer = await asyncio.open_connection(
         '127.0.0.1', 8888)
+
+    print("Sending: ", plaintext)
 
     print('Encrypting...')
     cifra = emitter(plaintext, key, nonce, associateddata)
