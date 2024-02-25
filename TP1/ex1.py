@@ -4,9 +4,7 @@ import os
 
 def emitter(plaintext, key, nonce, associateddata):
     cifra = encrypt(key, nonce, associateddata, plaintext, variant="Ascon-128")
-    #criptograma = cifra[:-16]
-    #tag = cifra[-16:]
-    return cifra#, criptograma, tag
+    return cifra
 
 def receiver(key, nonce, associateddata, cifra):
     receivedPlainText = decrypt(key, nonce, associateddata, cifra, variant="Ascon-128")
