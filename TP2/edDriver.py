@@ -2,7 +2,7 @@
 import sys
 import binascii
 
-from eddsa2 import Ed25519, PureEdDSA, Edwards25519Point, Ed25519_inthash, EdDSA
+from eddsa2 import Ed25519
 
 def munge_string(s, pos, change):
     return (s[:pos] +
@@ -24,11 +24,6 @@ while True:
     msg = binascii.unhexlify(fields[2])
     signature = binascii.unhexlify(fields[3])[:64]
 
-    pEd25519=PureEdDSA({\
-    "B":Edwards25519Point.stdbase(),\
-    "H":Ed25519_inthash\
-    })
-    Ed25519 = EdDSA(pEd25519,None)
     privkey,pubkey = Ed25519.keygen(secret)
     assert public == pubkey
     assert signature == Ed25519.sign(privkey, pubkey, msg)

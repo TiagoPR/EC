@@ -509,6 +509,10 @@ class EdDSA:
     # Generate a key.  If privkey is none, it generates a random
     # privkey key, otherwise it uses a specified private key.
     # Returns pair (privkey, pubkey).
+    def keygen(self,privkey=None):
+        if privkey is None:
+            privkey=os.urandom(self.__pure.b//8)
+        return self.__pure.keygen(privkey)
 
     # Sign message msg using specified key pair.
     def sign(self,privkey,pubkey,msg,ctx=None):
