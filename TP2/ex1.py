@@ -331,16 +331,20 @@ pEd25519=PureEdDSA({\
 Ed25519 = EdDSA(pEd25519,None)
 
 # Define a message
-message = "Anacleto manda mensagem a Bernardina"
+message = b"Anacleto manda mensagem a Bernardina"
 
 # Generate key pair using PureEdDSA keygen function
 privkey, pubkey = pEd25519.keygen()
 
+print(privkey, "SPACE", pubkey)
+
 # Sign the message
-signature = Ed25519.sign(privkey, pubkey, message.encode(), None)
+signature = Ed25519.sign(privkey, pubkey, message, None)
+
+print(signature)
 
 # Verify the signature
-verified = Ed25519.verify(pubkey, message.encode(), signature, None)
+verified = Ed25519.verify(pubkey, message, signature, None)
 
 if verified:
     print("Signature is verified.")

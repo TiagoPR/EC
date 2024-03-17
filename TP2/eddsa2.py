@@ -163,7 +163,7 @@ class EdwardsPoint:
         self.x=x
         self.y=y
         self.z=self.base_field.make(1)
-    def decode_base(self,s,b):
+    def decode_base(self,s,b):  ### O ERRO PROVAVELMENTE ESTA AQUI
         #Check that point encoding is the correct length.
         if len(s)!=b//8: return (None,None)
         #Extract signbit.
@@ -186,6 +186,8 @@ class EdwardsPoint:
         s=bytearray(yp.tobytes(b))
         #Add sign bit of x to encoding.
         if xp.sign()!=0: s[(b-1)//8]|=1<<(b-1)%8
+        return bytes(s)  # Convert the bytearray to bytes and return it
+
     def __mul__(self,x):
         r=self.zero_elem()
         s=self
@@ -506,13 +508,25 @@ class EdDSA:
         if self.__prehash is None:
             self.__prehash = lambda x,y:x
             self.__pflag = False
+
+    #Clamp a private scalar.
+    def __clamp(self,a):
+        _a = bytearray(a)
+        for i in range(0,self.__pure.c): _a[i//8]&=~(1<<(i%8))
+        _a[self.__pure.n//8]|=1<<(self.__pure.n%8)
+        for i in range(self.__pure.n+1,self.__pure.b): _a[i//8]&=~(1<<(i%8))
+        return _a
+    
     # Generate a key.  If privkey is none, it generates a random
     # privkey key, otherwise it uses a specified private key.
     # Returns pair (privkey, pubkey).
-    def keygen(self,privkey=None):
-        if privkey is None:
-            privkey=os.urandom(self.__pure.b//8)
-        return self.__pure.keygen(privkey)
+    def keygen(self,privkey):
+        #If no private key data is given, generate random.
+        #Expand key.
+        khash=self.__pure.H(privkey,None,None)
+        a=from_le(self.__clamp(khash[:self.__pure.b//8]))
+        #Return the key pair (public key is A=Enc(aB).
+        return privkey,(self.__pure.B*a).encode()
 
     # Sign message msg using specified key pair.
     def sign(self,privkey,pubkey,msg,ctx=None):

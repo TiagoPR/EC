@@ -17,7 +17,6 @@ while True:
     if not line:
         break
     lineno = lineno + 1
-    print(lineno)
     fields = line.split(":")
     secret = (binascii.unhexlify(fields[0]))[:32]
     public = binascii.unhexlify(fields[1])
