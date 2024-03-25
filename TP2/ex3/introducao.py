@@ -1,4 +1,5 @@
 from sage.all import *
+from sage.schemes.elliptic_curves import *
 
 
 lmbda = 256
@@ -12,7 +13,6 @@ identidade = b"identidade"
 F = GF(q)
 q2 = next_prime(q^2)
 F2 = GF(q2)
-
 
 def Zr(q):
     s = ZZ.random_element(1, q)  # Generate a random integer in Zq
@@ -45,7 +45,7 @@ def H(int):
 def ID(identidade):
     return g(h(identidade))
 
-def KeyExtract(id):
+def KeyExtract(s,id):
     return s * id
 
 def Xor(a,b):
@@ -108,7 +108,7 @@ print("s=", s, " beta=", beta)
 
 d = ID(identidade)
 print("d = ", d)
-key = KeyExtract(d)
+key = KeyExtract(s,d)
 print("key = ", key)
 mensagem = 1234
 c = Encrypt(d, mensagem)
