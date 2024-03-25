@@ -235,8 +235,24 @@ class Edwards25519Point(EdwardsPoint):
     def decode(self,s):
         x,y=self.decode_base(s,256);
     #Encode a point representation.
-    def encode(self):
-        return self.encode_base(256)
+    def encode(self) -> bytes:
+        """
+        Encode a point in Ed25519 format.
+        The input point should be a tuple (x, y) with integers in the range 0 ≤ x, y < p.
+        """
+        return self.encode_right(self.x, self.y)
+
+        x_int = int(self.x)
+        y_int = int(self.y)
+
+        # Copying the least significant bit of the x-coordinate to the most significant bit of the final octet.
+        return (int(y_int | ((x_int & 1) << 255))).from_le
+
+    @staticmethod
+    def encode_right(x, y):
+        from pure25519 import basic
+
+        return basic.encodepoint((x, y))
     #Construct a neutral point on this curve.
     def zero_elem(self):
         return Edwards25519Point(self.f0,self.f1)
