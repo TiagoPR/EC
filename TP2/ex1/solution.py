@@ -114,8 +114,8 @@ class EdDSA:
             self.setup_ed448()
 
     def setup_ed25519(self):
-        p = 2**255-19
-        K = GF(p)
+        p = 2**255-19    
+        K = GF(p)   
         a = K(-1)
         d = -K(121665)/K(121666)
         #
