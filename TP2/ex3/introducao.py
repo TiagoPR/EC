@@ -45,6 +45,8 @@ P = E2.random_point() # E2.random_point() é um ponto arbitrário em E2
 cofac = (p + 1)//q # cofactor de E2
 G = cofac * P # gerador de ordem "q" em E2
 
+identidade = b"Antonio Silva <asilva@qualquer.sitio> # 2024/12/31 23:59 # read,write"
+
 # emparelhamento e oraculo DDHP
 
 def phi(P):             # a isogenia que mapeia  (x,y)  ->  (z*x,y)
@@ -58,7 +60,7 @@ def ddhp(P,Q,R):        # o oraculo DDHP  que decide se (P,Q,R) é um triplo de 
     return TateX(P,Q) == TateX(R,G)
 
 def Zr(q):
-    s = ZZ.random_element(1, q-1)  # Generate a random integer in Zq (0...q-1)
+    s = ZZ.random_element(0, q-1)  # Generate a random integer in Zq (0...q-1)
     return s
 
 def g(n):
@@ -73,58 +75,50 @@ def KeyGen(q):
 
     return s, beta
 
-'''
-# Corpo finito Fp^2 - Inteiro
-def f(F2=F2):
-    # devolve um inteiro
-    return F2.random_element()
-
 def h(bytes):
     int_val = int.from_bytes(bytes, "little")
     return int_val
 
-def H(int):
-    return int % q
-
 def ID(identidade):
     return g(h(identidade))
 
-def KeyExtract(s,id):
+def KeyExtract(id):
     return s * id
 
 def Xor(a,b):
     int_a = int(a)
     int_b = int(b)
-    return int_a ^ int_b
+    return int_a ^^ int_b
 
-def phi(P):             # a isogenia que mapeia  (x,y)  ->  (z*x,y)
-    (x,y) = P.xy()
-    return E(bp*x,y)
+# função de hash Z -> Zq
+def H(int):
+    return int % q
 
-def ex(beta,id,a):
-    return beta.tate_pairing(phi(id), q, 2)^a
+# função de conversao Fp2 -> Z
+def f(x):
+    return x[0]
 
-def input_E(id,x):
-    v = Zr(id)
+def input_E(d,x):
+    v = Zr(q)
     a = H(Xor(v,x))
-    u = ex(beta, id, a)
+    u = TateX(beta, d, a)
     return (x,v,a,u)
 
 def output_E(x,v,a,u):
     alfa = g(a)
     v_ = Xor(v,f(u))
-    x_ = Xor(x,H(v))
+    x_ = Xor(x,H(v)) # qual a utilidade do H?
     return (alfa,v_,x_)
 
-def Encrypt(id,x):
-    (x,v,a,u) = input_E(id,x)
+def Encrypt(d,x):
+    (x,v,a,u) = input_E(d,x)
     (alfa, v_, x_) = output_E(x,v,a,u)
     # build criptograma from alfa, v_, x_
     criptograma = (alfa, v_, x_)
     return criptograma
 
 def input_D(key, alfa, v_, x_):
-    u = ex(alfa,key,1)
+    u = TateX(alfa,key,1)
     v = Xor(v_, f(u))
     x = Xor(x_, H(v))
     return (alfa,v,x)
@@ -142,11 +136,22 @@ def Decrypt(key, criptograma):
     if x is None:
         print("Decryption failed")
     return x
-'''
 
 s, beta = KeyGen(bp)
 print("s=", s, " beta=", beta)
 
+d = ID(identidade)
+print("d=",d)
+
+key = KeyExtract(d)
+print("key=",key)
+
+x = 1234
+criptograma = Encrypt(d, x)
+print("criptograma=",criptograma)
+
+plaintext = Decrypt(key, criptograma)
+print("plaintext=", plaintext)
 # d = ID(identidade)
 # print("d = ", d)
 # key = KeyExtract(s,d)
