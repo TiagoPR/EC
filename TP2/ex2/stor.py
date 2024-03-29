@@ -27,6 +27,7 @@ class NTT(object):
             random_pol(args): Generates a random polynomial.
 
         """
+    # O primeiro passo é a escolha de um $N$ da forma $2^d$  e um primo $\,q\,$ que  verifique $\,q \equiv 1 \bmod 2N\,$.
     def __init__(self, n=128, q=None):
         if not  n in [32,64,128,256,512,1024,2048]:
             raise ValueError("improper argument ",n)
@@ -44,7 +45,9 @@ class NTT(object):
             if q % (2*n) != 1:
                 raise ValueError("Valor de 'q' não verifica a condição NTT")
             self.q = q
-        
+            
+        ##########
+            
         # Define o campo finito e o anel de polinómios
         self.F = GF(self.q) ;  self.R = PolynomialRing(self.F, name="w")
         w = (self.R).gen()
