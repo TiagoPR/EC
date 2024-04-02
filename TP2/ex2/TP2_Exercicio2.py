@@ -36,6 +36,7 @@ class NTT(object):
         # X - lista de inteiros que são coprimos em pares
         # E - lista de inteiros de tal modo que E[i] = 1 (mod X[i]) e E[i] = 0 (mod X[j]), sendo que j != i
     
+    # Função que aplica a transformada NTT a um polinómio f
     def ntt(self,f):
         def _expand_(f):
             u = f.list() # lista dos coeficientes do polinómio f

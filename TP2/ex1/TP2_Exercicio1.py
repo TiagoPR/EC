@@ -17,6 +17,7 @@ class EdwardsCurve(object):
 
         self.l = ed['l']
 
+    # Verifica se um ponto (x,y) pertence à curva de Edwards
     def is_edwards(self, x, y):
         a = self.constants['a'] ; d = self.constants['d']
         x2 = x**2 ; y2 = y**2
