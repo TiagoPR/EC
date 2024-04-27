@@ -1,4 +1,5 @@
 from cryptography.hazmat.primitives import hashes
+from pickle import dumps
 
 DEFAULT_PARAMETERS = {
     "kyber_512" : {
@@ -166,9 +167,11 @@ class Kyber:
         return m
     
     # Three Hash functions
-    def H(self, s):
+    def H(self, t, ro):
         digest = hashes.Hash(hashes.SHA3_256())
-        digest.update(bytes(s))
+        t_dumps = dumps(t)
+        digest.update(t_dumps)
+        digest.update(bytes(ro))
         h = digest.finalize()
         return h
 
@@ -181,7 +184,8 @@ class Kyber:
 
     def G(self, c):
         digest = hashes.Hash(hashes.SHA3_512())
-        digest.update(bytes(c))
+        c_bytes = b''.join(bytes(element) for element in c)
+        digest.update(c_bytes)
         g = digest.finalize()
         return g[:32],g[32:]
     
@@ -279,7 +283,7 @@ class Kyber:
         return self.Rq(f)
 
     def KPKE_keyGen(self):
-        d = bytearray(os.urandom(32))
+        d = os.urandom(32)
         ro, sigma = self.G(d)
         N = 0
         
@@ -308,14 +312,14 @@ class Kyber:
             
         t = sumMatrix(multMatrixVector(A,s,self.k,self.n), e, self.n)
         
-        pk = t, ro
-        sk = s
+        ek = t, ro
+        dk = s
         
-        return pk, sk
+        return ek, dk
 
-    def KPKE_encrypt(self, pk, m, r):
+    def KPKE_encrypt(self, ek, m, r):
         N = 0
-        t, ro = pk
+        t, ro = ek
         
         # Generate matrix Â in Rq in NTT domain
         transposeA = []
@@ -364,7 +368,7 @@ class Kyber:
         
         return c1, c2
 
-    def KPKE_decrypt(self, sk, c):
+    def KPKE_decrypt(self, dk, c):
         c1, c2 = c
  
         u = []       
@@ -373,7 +377,7 @@ class Kyber:
         
         v = self.Decompress(c2,self.dv)
 
-        s = sk
+        s = dk
         
         uNTT = []
         for i in range(len(u)) :
@@ -391,39 +395,40 @@ class Kyber:
         z = bytearray(os.urandom(32))
         (ek,dk) = self.KPKE_keyGen()
         ek = ek
-        dk = (dk, ek, self.H(ek), z)
+        t, ro = ek
+        dk = (dk, ek, self.H(t, ro), z)
         return (ek,dk)
 
     def MLKEM_encaps(self, ek):
-        m = bytearray(os.urandom(32))
-        (K, r) = self.G((m, self.H(ek)))
+        m = os.urandom(32)
+        t, ro = ek
+        (K, r) = self.G((m, self.H(t, ro)))
         c = self.KPKE_encrypt(ek,m,r)
         return (K,c)
     
     def MLKEM_decaps(self, c, dk):
         (dk, ek, h, z) = dk
         m_ = self.KPKE_decrypt(dk,c)
-        (K_, r_) = G((m_,h))
+        (K_, r_) = self.G((m_,h))
         K = self.J((z,c),32)
         c_ = self.KPKE_encrypt(ek,m_,r_)
         if c != c_:
             K_ = K
-        return K_
+        return K_, 
 
 
 ## TESTE
 
 kyber = Kyber(DEFAULT_PARAMETERS["kyber_512"])
 
-pk, sk = kyber.MLKEM_keygen()
-m = b'Hello there!'
-print("Original message:")
-print(m)
+ek, dk = kyber.MLKEM_keygen()
 
-y, c = kyber.MLKEM_encaps(m, pk)
+K, c = kyber.MLKEM_encaps(ek)
+print("\nSecret key:")
+print(K)
 print("\nCiphertext:")
 print(c)
 
-plaintext = kyber.MLKEM_decaps(y, c, pk, sk)
+plaintext = kyber.MLKEM_decaps(c, K)
 print("\nDecrypted ciphertext:")
 print(plaintext)
