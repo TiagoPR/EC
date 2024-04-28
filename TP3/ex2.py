@@ -150,58 +150,52 @@ class Kyber:
         Rq.<w> = QuotientRing(Zq, Zq.ideal(fi))
         self.Rq = Rq
     
-    # Pseudorandom function (PRF). The function PRF takes a parameter n∈ {2,3}, one 32-byte input, and one 1-byte input. It produces one (64.n)-byte output
+    # Pseudorandom function (PRF). The function PRF takes a parameter n ∈ {2,3}, one 32-byte input, and one 1-byte input. It produces one (64.n)-byte output
     def PRF(self,b,b1): 
         digest = hashes.Hash(hashes.SHAKE256(int(self.q)))
-        digest.update(b)
-        digest.update(bytes(b1))
+        digest.update(b + bytes([b1]))
         return digest.finalize()
 
     # eXtendable-output function (XOF). The function XOFtakes one 32-byte input and two 1-byte inputs. It produces a variable-length output
     def XOF(self,b,b1,b2):
         digest = hashes.Hash(hashes.SHAKE128(int(self.q)))
-        digest.update(b)
-        digest.update(bytes(b1))
-        digest.update(bytes(b2))
+        digest.update(b + bytes([b1]) + bytes([b2]))
         m = digest.finalize()
         return m
     
     # Three Hash functions
-    def H(self, t, ro):
+    def H(self, s):
         digest = hashes.Hash(hashes.SHA3_256())
-        t_dumps = dumps(t)
-        digest.update(t_dumps)
-        digest.update(bytes(ro))
+        digest.update(bytes(s))
         h = digest.finalize()
         return h
 
     # size should be 32
-    def J(self, s, size):
-        digest = hashes.Hash(hashes.SHAKE256(size))
+    def J(self, s, size=32):
+        digest = hashes.Hash(hashes.SHAKE256(int(size)))
         digest.update(bytes(s))
         j = digest.finalize()
         return j
 
     def G(self, c):
         digest = hashes.Hash(hashes.SHA3_512())
-        c_bytes = b''.join(bytes(element) for element in c)
-        digest.update(c_bytes)
+        digest.update(c)
         g = digest.finalize()
-        return g[:32],g[32:]
+        return g[:32], g[32:]
     
     # Converts a bit array into a byte array.
-    # def bits2Bytes(self, bitArray):
-    #     # Length check
-    #     if len(bitArray) % 8 != 0:
-    #         raise ValueError("Input bit array length must be a multiple of 8")
-    #     # Initialize byte array with zeros
-    #     byteArray = [0] * (len(bitArray) // 8)
-    #     # Convert bits to bytes
-    #     for i in range(len(bitArray)):
-    #         byte_index = i // 8  # Integer division for byte index
-    #         bit_offset = i % 8  # Remainder for bit position within the byte
-    #         byteArray[byte_index] += bitArray[i] << bit_offset  # Add bit value considering position
-    #     return byteArray
+    def bits2Bytes(self, bitArray):
+        # Length check
+        if len(bitArray) % 8 != 0:
+            raise ValueError("Input bit array length must be a multiple of 8")
+        # Initialize byte array with zeros
+        byteArray = [0] * (len(bitArray) // 8)
+        # Convert bits to bytes
+        for i in range(len(bitArray)):
+            byte_index = i // 8  # Integer division for byte index
+            bit_offset = i % 8  # Remainder for bit position within the byte
+            byteArray[byte_index] += bitArray[i] << bit_offset  # Add bit value considering position
+        return bytes(byteArray)
 
     def bytes2Bits(self, byteArray):
         bitArray = []
@@ -231,18 +225,14 @@ class Kyber:
             newCoefficients.append(new)
         return self.Rq(newCoefficients)
 
-    # def ByteEncode(self, f, l):
-    #     byteArray = []
-    #     bitArray = []
-    #     for i in range(len(f)):
-    #         for j in range(l):
-    #             bitArray.append(Mod(f[i]//2**j,2))
-    #     for i in range(len(bitArray)//8):
-    #         byte = 0
-    #         for j in range(8):
-    #             byte += bitArray[i*8+j]*2**j
-    #         byteArray.append(byte)
-    #     return byteArray
+    def ByteEncode(self, f, l):
+        byteArray = []
+        bitArray = []
+        for i in range(len(f)):
+            for j in range(l):
+                bitArray.append(Mod(f[i]//2**j,2))
+        byteArray = self.bits2Bytes(bitArray)
+        return byteArray
 
     def ByteDecode(self, byteArray, l):
         f = []
@@ -312,15 +302,15 @@ class Kyber:
             
         t = sumMatrix(multMatrixVector(A,s,self.k,self.n), e, self.n)
         
-        ek = t, ro
-        dk = s
+        ek = b"".join(self.ByteEncode(s, 12) for s in t) + ro
+        dk = b"".join(self.ByteEncode(s, 12) for s in t)
         
         return ek, dk
 
     def KPKE_encrypt(self, ek, m, r):
         N = 0
-        t, ro = ek
-        
+        t = [self.ByteEncode(ek[i*128*self.k:(i+1)*128*self.k], 12) for i in range(self.k)]
+        ro = ek[-32:]
         # Generate matrix Â in Rq in NTT domain
         transposeA = []
         for i in range(self.k):
@@ -346,46 +336,45 @@ class Kyber:
         uAux = multMatrixVector(transposeA, rr, self.k, self.n)
         uAux2 = []
         for i in range(len(uAux)) :
-            uAux2.append(self.T.invNtt(uAux[i]))
+            uAux2.append(self.T.ntt_inv(uAux[i]))
         uAux3 = sumMatrix(uAux2, e1, self.n)
         u = []
         for i in range(len(uAux3)) :
             u.append(self.Rq(uAux3[i]))
-            
+
         vAux = multMatrix(t, rr, self.n)
-        vAux1 = self.T.invNtt(vAux)
+        vAux1 = self.T.ntt_inv(vAux)
         vAux2 = self.Rq(sumVector(vAux1, e2, self.n))
         
-        v = self.Rq(sumVector(vAux2, self.Decompress(m, 1), self.n))
+        v = self.Rq(sumVector(vAux2, self.Decompress(self.ByteDecode(m,1), 1), self.n))
         
-        # Compress(u, du)
-        c1 = []
-        for i in range(len(u)):
-            c1.append(self.Compress(u[i], self.du))
+        c1 = b"".join(self.ByteEncode(list(self.Compress(u[i], self.du)), self.du) for i in range(self.k))
         
-        # Compress(v, dv)
-        c2 = self.Compress(v, self.dv)
+        c2 = self.ByteEncode(list(self.Compress(v, self.dv)), self.dv)
         
-        return c1, c2
+        return c1 + c2
 
     def KPKE_decrypt(self, dk, c):
-        c1, c2 = c
- 
+        c1 = c[:32*self.du*self.k]
+        c2 = c[32*self.du*self.k:]
         u = []       
-        for i in range(len(c1)):
-            u.append(self.Decompress(c1[i], self.du))
+        for i in range(self.k):
+            u.append(self.Decompress(self.ByteDecode(c1[i*32*self.du:(i+1)*32*self.du], self.du), self.du))
         
-        v = self.Decompress(c2,self.dv)
+        v = self.Decompress(self.ByteDecode(c2, self.dv),self.dv)
 
-        s = dk
+        s = []
+        for i in range(self.k):
+                s.append(self.ByteDecode(dk[i*384:(i+1)*384], 12))
+        #s = self.ByteDecode(dk, 12)
         
         uNTT = []
         for i in range(len(u)) :
             uNTT.append(self.T.ntt(u[i]))
         
-        mAux = subVector(v, self.T.invNtt(multMatrix(s, uNTT, self.n)), self.n)
+        mAux = subVector(v, self.T.ntt_inv(multMatrix(s, uNTT, self.n)), self.n)
 
-        m = self.Compress(self.Rq(mAux), 1)
+        m = self.ByteEncode(list(self.Compress(self.Rq(mAux), 1)), 1)
         
         return m
 
@@ -393,28 +382,29 @@ class Kyber:
 
     def MLKEM_keygen(self):
         z = bytearray(os.urandom(32))
-        (ek,dk) = self.KPKE_keyGen()
+        ek, dk = self.KPKE_keyGen()
         ek = ek
-        t, ro = ek
-        dk = (dk, ek, self.H(t, ro), z)
+        dk = (dk, ek, self.H(ek), z)
         return (ek,dk)
 
     def MLKEM_encaps(self, ek):
         m = os.urandom(32)
-        t, ro = ek
-        (K, r) = self.G((m, self.H(t, ro)))
+        K, r = self.G(m + self.H(ek))
         c = self.KPKE_encrypt(ek,m,r)
         return (K,c)
     
     def MLKEM_decaps(self, c, dk):
-        (dk, ek, h, z) = dk
+        dk = dk[:384*self.k]
+        ek = dk[384*self.k : 768 * self.k + 32]
+        h = dk[768*self.k + 32 : 768*self.k + 64]
+        z = dk[768*self.k + 64 : 768*self.k + 96]
         m_ = self.KPKE_decrypt(dk,c)
-        (K_, r_) = self.G((m_,h))
-        K = self.J((z,c),32)
+        K_, r_ = self.G(m_ + h)
+        K = self.J(z + c)
         c_ = self.KPKE_encrypt(ek,m_,r_)
         if c != c_:
             K_ = K
-        return K_, 
+        return K_ 
 
 
 ## TESTE
