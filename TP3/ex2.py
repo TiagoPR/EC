@@ -3,7 +3,7 @@ from pickle import dumps
 
 DEFAULT_PARAMETERS = {
     "kyber_512" : {
-        "n" : 128,
+        "n" : 256,
         "k" : 2,
         "q" : 3329,
         "eta_1" : 3,
@@ -36,7 +36,7 @@ DEFAULT_PARAMETERS = {
 class NTT(object):
     def __init__(self, n=128, q=None):
         if not n in [32,64,128,256,512,1024,2048]:
-            raise ValueError("Argumento inválido",n)
+            raise ValueError("Argumento inválido", n)
         self.n = n  
         if not q:
             self.q = 1 + 2*n
@@ -45,8 +45,8 @@ class NTT(object):
                     break
                 self.q += 2*n
         else:
-            if q % (2*n) != 1:
-                raise ValueError("O valor 'q' não verifica a condição NTT")
+            # if q % (2*n) != 1:
+            #     raise ValueError("O valor 'q' não verifica a condição NTT")
             self.q = q
         
         self.F = GF(self.q) ;  self.R = PolynomialRing(self.F, name="w")
@@ -103,7 +103,11 @@ def sumMatrix(e1, e2, n):
 # Multiplicação de vetores
 def multVector(ff1, ff2, n):
     res = []
+    # print(len(ff1))
+    # print(len(ff2))
     for i in range(n):
+        ff = ff1[i] * ff2[i]
+        print(ff)
         res.append((ff1[i] * ff2[i]))
     return res
 
