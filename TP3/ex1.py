@@ -41,7 +41,6 @@ def create_oracle(alpha):
 # Precisamos agora de usar os reticulados para prevenir o HNP
 
 # d - The number of oracle queries.
-# Using parameters from Thereom 1.
 d = 2 * ceil(sqrt(n)) # sacado do pdf
 
 ######

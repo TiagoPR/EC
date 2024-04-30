@@ -31,10 +31,15 @@ DEFAULT_PARAMETERS = {
     }
 }
 
+def bitrev7(n: int) -> int:
+    return int(f"{n:07b}"[::-1], 2)  # gross but it works
 
 # Implementação da Classe NTT (Number Theoretic Transform)
 class NTT(object):
     def __init__(self, n=128, q=None):
+        self.ZETA = [pow(17, bitrev7(k), q) for k in range(128)] # used in ntt and ntt_inv
+        self.GAMMA = [pow(17, 2*bitrev7(k)+1, q) for k in range(128)] # used in ntt_mul
+
         if not n in [32,64,128,256,512,1024,2048]:
             raise ValueError("Argumento inválido", n)
         self.n = n  
@@ -63,7 +68,7 @@ class NTT(object):
             u = f.list()
             return u + [0]*(self.n-len(u)) 
         
-        def _ntt_(xi,N,f):
+        def _ntt_(xi, N, f):
             if N==1:
                 return f
             N_ = N/2 ; xi2 =  xi^2  
@@ -71,13 +76,19 @@ class NTT(object):
             ff0 = _ntt_(xi2,N_,f0) ; ff1 = _ntt_(xi2,N_,f1)  
     
             s  = xi ; ff = [self.F(0) for i in range(N)] 
-            for i in range(N_):
-                a = ff0[i] ; b = s*ff1[i]  
-                ff[i] = a + b ; ff[i + N_] = a - b 
-                s = s * xi2                     
+            k = 1
+            for log2len in range(7, 0, -1):
+                length = 2**log2len
+                for start in range(0, 256, 2 * length):
+                    zeta = self.ZETA[k]
+                    k += 1
+                    for i in range(N_):
+                        a = ff0[i] ; b = s*ff1[i]  
+                        ff[i] = (a + b) % self.q ; ff[i + N_] = (a - b) % self.q
+                        s = s * xi2 % self.q
             return ff 
         
-        return _ntt_(self.xi,self.n,_expand_(f))
+        return _ntt_(_expand_(f))
         
     def ntt_inv(self,ff):                 
         return sum([ff[i]*self.base[i] for i in range(self.n)])
@@ -153,7 +164,6 @@ class Kyber:
         fi = w^self.n + 1
         Rq.<w> = QuotientRing(Zq, Zq.ideal(fi))
         self.Rq = Rq
-        w = Rq.gen()
     
     # Pseudorandom function (PRF). The function PRF takes a parameter n ∈ {2,3}, one 32-byte input, and one 1-byte input. It produces one (64.n)-byte output
     def PRF(self,b,b1): 

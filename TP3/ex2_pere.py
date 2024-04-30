@@ -392,7 +392,7 @@ class KYBER_PKE:
         else:
             return self.xor(y, self.hashFOT(bytes(r)))
 
-kyber = KYBER_PKE(512)
+kyber = KYBER_PKE(768)
 
 ek, dk = kyber.MLKEM_Keygen()
 m = b'Hello there!'

@@ -27,8 +27,8 @@ if __name__ == "__main__":
 	bar = shake_128(b"hello").digest(17 + 5 + 57 + 1432 + 48)
 	assert(foo == bar)
 
-n = 256
-q = 3329
+n = int(256)
+q = int(3329)
 
 DEFAULT_PARAMETERS = {
     "kyber_512" : {
@@ -162,20 +162,31 @@ class Kyber:
 
 
     # encode/decode logic
+    # Converts a bit array into a byte array.
+    def bits_to_bytes(self, bitArray):
+        # Length check
+        if len(bitArray) % 8 != 0:
+            raise ValueError("Input bit array length must be a multiple of 8")
+        # Initialize byte array with zeros
+        byteArray = [0] * (len(bitArray) // 8)
+        # Convert bits to bytes
+        for i in range(len(bitArray)):
+            byte_index = i // 8  # Integer division for byte index
+            bit_offset = i % 8  # Remainder for bit position within the byte
+            byteArray[byte_index] += bitArray[i] << bit_offset  # Add bit value considering position
+        return bytes(byteArray)
 
-    def bits_to_bytes(self,bits: List[int]) -> bytes:
-        assert(len(bits) % 8 == 0)
-        return bytes(
-            sum(bits[i + j] << j for j in range(8))
-            for i in range(0, len(bits), 8)
-        )
+    def bytes_to_bits(self, byteArray):
+        bitArray = []
+        for elem in byteArray:
+            bitElemArr = []
+            for i in range(0,8): 
+                bitElemArr.append(Mod(elem//2**(Mod(i,8)),2))
+                for i in range(0,len(bitElemArr)):
+                    bitArray.append(bitElemArr[i])
+        return bitArray
 
-    def bytes_to_bits(self,data: bytes) -> List[int]:
-        bits = []
-        for word in data:
-            for i in range(8):
-                bits.append((word >> i) & 1)
-        return bits
+
 
     def byte_encode(self,d: int, f: List[int]) -> bytes:
         assert(len(f) == 256)
