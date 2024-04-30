@@ -27,8 +27,8 @@ if __name__ == "__main__":
 	bar = shake_128(b"hello").digest(17 + 5 + 57 + 1432 + 48)
 	assert(foo == bar)
 
-n = int(256)
-q = int(3329)
+n = 256
+q = 3329
 
 DEFAULT_PARAMETERS = {
     "kyber_512" : {
