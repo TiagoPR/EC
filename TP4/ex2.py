@@ -25,26 +25,6 @@ k = 8
 a = 4
 t = 2^a
 
-# Input: len_X-byte string X, int w, output length out_len
-# Output: out_len int array basew
-def base_w(x, w, out_len):
-    v_in = 0
-    v_out = 0
-    total = 0
-    bits = 0
-    basew = []
-    consumed = 0
-    while (consumed < out_len):
-        if bits == 0:
-            total = x[v_in]
-            v_in += 1
-            bits += 8
-        bits -= math.floor(math.log(w, 2))
-        basew.append((total >> bits) % w)
-        v_out += 1
-        consumed += 1
-
-    return basew
 
 class ADRS:
     # TYPES
@@ -90,9 +70,9 @@ class ADRS:
 
     def set_type(self, val):
         self.type = val
+        self.word_1 = 0
         self.word_2 = 0
         self.word_3 = 0
-        self.word_1 = 0
 
     def set_layer_address(self, val):
         self.layer = val
@@ -126,6 +106,26 @@ class ADRS:
 
 import random
 import hashlib
+
+# Input: len_X-byte string X, int w, output length out_len
+# Output: out_len int array basew
+def base_w(x, w, out_len):
+    v_in = 0
+    v_out = 0
+    total = 0
+    bits = 0
+    basew = []
+    consumed = 0
+    while (consumed < out_len):
+        if bits == 0:
+            total = x[v_in]
+            v_in += 1
+            bits += 8
+        bits -= math.floor(math.log(w, 2))
+        basew.append((total >> bits) % w)
+        v_out += 1
+        consumed += 1
+    return basew
 
 def hash(seed, adrs: ADRS, value, digest_size = n):
     m = hashlib.sha512()
@@ -205,27 +205,21 @@ def chain(x, i, s, public_seed, adrs: ADRS):
     tmp = hash(public_seed, adrs, tmp, n)
     return tmp
 
-# Input: secret seed SK.seed, address ADRS
-# Output: WOTS+ private key sk
-def wots_sk_gen(secret_seed, adrs: ADRS):
-    sk = []
-    for i in range(0, len_0):
-        adrs.set_chain_address(i)
-        adrs.set_hash_address(0)
-        sk.append(prf(secret_seed, adrs.copy()))
-    return sk
-
 # Input: secret seed SK.seed, address ADRS, public seed PK.seed
 # Output: WOTS+ public key pk
 def wots_pk_gen(secret_seed, public_seed, adrs: ADRS):
     wots_pk_adrs = adrs.copy()
+    wots_pk_adrs.set_type(ADRS.WOTS_PRF)
+    wots_pk_adrs.set_key_pair_address(adrs.get_key_pair_address())
+
     tmp = bytes()
     for i in range(0, len_0):
         adrs.set_chain_address(i)
         adrs.set_hash_address(0)
-        sk = prf(secret_seed, adrs.copy())
+        sk = prf(public_seed, secret_seed, adrs.copy())
         tmp += bytes(chain(sk, 0, w - 1, public_seed, adrs.copy()))
 
+    wots_pk_adrs = adrs.copy()
     wots_pk_adrs.set_type(ADRS.WOTS_PK)
     wots_pk_adrs.set_key_pair_address(adrs.get_key_pair_address())
     
@@ -250,11 +244,15 @@ def wots_sign(m, secret_seed, public_seed, adrs):
     len2_bytes = math.ceil((len_2 * math.floor(math.log(w, 2))) / 8)
     msg += base_w(int(csum).to_bytes(len2_bytes, byteorder='big'), w, len_2)
 
+    wots_pk_adrs = adrs.copy()
+    wots_pk_adrs.set_type(ADRS.WOTS_PRF)
+    wots_pk_adrs.set_key_pair_address(adrs.get_key_pair_address())
+
     sig = []
     for i in range(0, len_0):
         adrs.set_chain_address(i)
         adrs.set_hash_address(0)
-        sk = prf(secret_seed, adrs.copy())
+        sk = prf(public_seed, secret_seed, adrs.copy())
         sig += [chain(sk, 0, msg[i], public_seed, adrs.copy())]
 
     return sig
@@ -290,7 +288,7 @@ def wots_pk_from_sig(sig, m, public_seed, adrs: ADRS):
 
 # Input: Secret seed SK.seed, start index s, target node height z, public seed PK.seed, address ADRS
 # Output: n-byte root node - top node on Stack
-def treehash(secret_seed, s, z, public_seed, adrs: ADRS):
+def xmss_node(secret_seed, s, z, public_seed, adrs: ADRS):
     if s % (1 << z) != 0:
         return -1
 
@@ -318,12 +316,6 @@ def treehash(secret_seed, s, z, public_seed, adrs: ADRS):
 
     return stack.pop()['node']
 
-# Input: Secret seed SK.seed, public seed PK.seed, address ADRS
-# Output: XMSS public key PK
-def xmss_pk_gen(secret_seed, public_key, adrs: ADRS):
-    pk = treehash(secret_seed, 0, h_prime, public_key, adrs.copy())
-    return pk
-
 # Input: n-byte message M, secret seed SK.seed, index idx, public seed PK.seed, address ADRS
 # Output: XMSS signature SIG_XMSS = (sig || AUTH)
 def xmss_sign(m, secret_seed, idx, public_seed, adrs):
@@ -335,7 +327,7 @@ def xmss_sign(m, secret_seed, idx, public_seed, adrs):
             ki -= 1
         else:
             ki += 1
-        auth += [treehash(secret_seed, ki * 2^j, j, public_seed, adrs.copy())]
+        auth += [xmss_node(secret_seed, ki * 2^j, j, public_seed, adrs.copy())]
 
     adrs.set_type(ADRS.WOTS_HASH)
     adrs.set_key_pair_address(idx)
@@ -369,15 +361,6 @@ def xmss_pk_from_sig(idx, sig_xmss, m, public_seed, adrs):
         node0 = node1
 
     return node0  
-
-# Input: Private seed SK.seed, public seed PK.seed
-# Output: HT public key PK_HT
-def ht_pk_gen(secret_seed, public_seed):
-    adrs = ADRS()
-    adrs.set_layer_address(d - 1)
-    adrs.set_tree_address(0)
-    root = xmss_pk_gen(secret_seed, public_seed, adrs.copy())
-    return root
 
 # Input: Message M, private seed SK.seed, public seed PK.seed, tree index idx_tree, leaf index idx_leaf
 # Output: HT signature SIG_HT
@@ -429,15 +412,19 @@ def ht_verify(m, sig_ht, public_seed, idx_tree, idx_leaf, public_key_ht):
 
 # Input: secret seed SK.seed, address ADRS, secret key index idx = it+j
 # Output: FORS private key sk
-def fors_sk_gen(secret_seed, adrs: ADRS, idx):
+def fors_sk_gen(secret_seed, public_seed, adrs: ADRS, idx):
+    wots_pk_adrs = adrs.copy()
+    wots_pk_adrs.set_type(ADRS.FORS_PRF)
+    wots_pk_adrs.set_key_pair_address(adrs.get_key_pair_address())
+
     adrs.set_tree_height(0)
     adrs.set_tree_index(idx)
-    sk = prf(secret_seed, adrs.copy())
+    sk = prf(public_seed, secret_seed, adrs.copy())
     return sk
 
 # Input: Secret seed SK.seed, start index s, target node height z, public seed PK.seed, address ADRS
 # Output: n-byte root node - top node on Stack
-def fors_treehash(secret_seed, s, z, public_seed, adrs):
+def fors_node(secret_seed, s, z, public_seed, adrs):
     if s % (1 << z) != 0:
         return -1
 
@@ -445,7 +432,7 @@ def fors_treehash(secret_seed, s, z, public_seed, adrs):
     for i in range(0, 2^z):
         adrs.set_tree_height(0)
         adrs.set_tree_index(s + i)
-        sk = prf(secret_seed, adrs.copy())
+        sk = prf(public_seed, secret_seed, adrs.copy())
         node = hash(public_seed, adrs.copy(), sk, n)
         adrs.set_tree_height(1)
         adrs.set_tree_index(s + i)
@@ -459,19 +446,6 @@ def fors_treehash(secret_seed, s, z, public_seed, adrs):
         stack.append({'node': node, 'height': adrs.get_tree_height()})
 
     return stack.pop()['node']
-
-# Input: Secret seed SK.seed, public seed PK.seed, address ADRS
-# Output: FORS public key PK
-def fors_pk_gen(secret_seed, public_seed, adrs: ADRS):
-    fors_pk_adrs = adrs.copy() # copy address to create FTS public key address
-
-    root = bytes()
-    for i in range(0, k):
-        root += fors_treehash(secret_seed, i * t, a, public_seed, adrs)
-    fors_pk_adrs.set_type(ADRS.FORS_ROOTS)
-    fors_pk_adrs.set_key_pair_address(adrs.get_key_pair_address())
-    pk = hash(public_seed, fors_pk_adrs, root)
-    return pk
 
 # Input: Bit string M, secret seed SK.seed, address ADRS, public seed PK.seed
 # Output: FORS signature SIG_FORS
@@ -487,7 +461,7 @@ def fors_sign(m, secret_seed, public_seed, adrs):
         # pick private key element
         adrs.set_tree_height(0)
         adrs.set_tree_index(i * t + idx)
-        sig_fors += [prf(secret_seed, adrs.copy())]
+        sig_fors += [prf(public_seed, secret_seed, adrs.copy())]
 
         # compute auth path
         auth = []
@@ -497,7 +471,7 @@ def fors_sign(m, secret_seed, public_seed, adrs):
                 s -= 1
             else:
                 s += 1
-            auth += [fors_treehash(secret_seed, i * t + s * 2^j, j, public_seed, adrs.copy())]
+            auth += [fors_node(secret_seed, i * t + s * 2^j, j, public_seed, adrs.copy())]
         sig_fors += auth
 
     return sig_fors
@@ -551,12 +525,14 @@ import os
     
 # Input: (none)
 # Output: SPHINCS+ key pair (SK,PK)
-def spx_key_gen():
+def slh_keygen():
     secret_seed = os.urandom(n)
     secret_prf = os.urandom(n)
     public_seed = os.urandom(n)
 
-    public_root = ht_pk_gen(secret_seed, public_seed)
+    adrs = ADRS()
+    adrs.set_layer_address(d - 1)
+    public_root = xmss_node(secret_seed, 0, h_prime, public_seed, adrs.copy())
 
     return [secret_seed, secret_prf, public_seed, public_root], [public_seed, public_root]
 
@@ -564,7 +540,7 @@ RANDOMIZE = True
 
 # Input: Message M, private key SK = (SK.seed, SK.prf, PK.seed, PK.root)
 # Output: SPHINCS+ signature SIG
-def spx_sign(m, secret_key):
+def slh_sign(m, secret_key):
     # Init
     adrs = ADRS()
     secret_seed = secret_key[0]
@@ -573,7 +549,7 @@ def spx_sign(m, secret_key):
     public_root = secret_key[3]
 
     # Generate randomizer
-    opt = bytes(n)
+    opt = public_seed
     if RANDOMIZE:
         opt = os.urandom(n)
     r = prf_msg(secret_prf, opt, m)
@@ -615,7 +591,7 @@ def spx_sign(m, secret_key):
 
 # Input: Message M, signature SIG, public key PK
 # Output: Boolean
-def spx_verify(m, sig, public_key):
+def slh_verify(m, sig, public_key):
     # init
     adrs = ADRS()
     r = sig[0]
@@ -653,7 +629,7 @@ def spx_verify(m, sig, public_key):
     return ht_verify(pk_fors, sig_ht, public_seed, idx_tree, idx_leaf, public_root)
 
 # Generate key pair
-sk, pk = spx_key_gen()
+sk, pk = slh_keygen()
 
 print("Private key:\n", sk)
 print("\nPublic key:\n", pk)
@@ -661,6 +637,6 @@ print("\nPublic key:\n", pk)
 m = b'Hello there!'
 print("\nMessage to be signed:\n", m)
 
-s = spx_sign(m, sk)
+s = slh_sign(m, sk)
 
-print("\nVerifying signature...\n", spx_verify(m, s, pk))
+print("\nVerifying signature...\n", slh_verify(m, s, pk))

@@ -1,19 +1,20 @@
 import hashlib
 
-class MLDSA:
+class DILITHIUM:
 
-    # Parâmetros da técnica ML-DSA-87 
-    def __init__(self):
-        self.q = 8380417
+    # Parâmetros da técnica DILITHIUM - NIST level 5 - 5+
+    def __init__(self):                                           
+        self.n = 256
         self.d = 13
-        self.tau = 60
-        self.lmbda = 256
-        self.gama_1 = 2^19
-        self.gama_2 = (self.q)-1/32
+        #2^23 − 2^13 + 1
+        self.q = 8380417
         self.k = 8
         self.l = 7
         self.eta = 2
+        self.tau = 60
         self.beta = 120
+        self.gama_1 = 2^19
+        self.gama_2 = (self.q)-1/32
         self.omega = 75
         
         # Anéis 
@@ -24,8 +25,6 @@ class MLDSA:
     
         # Espaço matrix 
         self.Mr  = MatrixSpace(self.Rq,self.k,self.l)
-
-
 
     # Algoritmo de geração de chaves  
     def key_gen(self):
@@ -150,7 +149,7 @@ class MLDSA:
             j = int(r[k])
             k += 1
             s = int(sl[i-196])
-
+  
             c[i] = c[j]
             c[j] = (-1)^(s)
         return c
@@ -208,13 +207,13 @@ class MLDSA:
         cq = self.Rq(c)
         
         w1 = self.hb_poli(A*z - cq*t, 2*self.gama_2)
-       
+    
         u = str(w1).encode()
         k = message.encode()
         c_ = self.hash(k,u)
         
         return self.norma_inf_vet(z)[0] < self.gama_1 - self.beta and c_ == c
-    
+
 dilithium = DILITHIUM()
 
 message = 'This is the message'

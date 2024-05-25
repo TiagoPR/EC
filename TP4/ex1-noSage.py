@@ -5,13 +5,7 @@ from modules import *
 from shake_wrapper import Shake128, Shake256
 from utils import *
 from ntt_helper import NTTHelperDilithium
-
-try:
-    from aes256_ctr_drbg import AES256_CTR_DRBG
-except ImportError as e:
-    print("Error importing AES256 CTR DRBG. Have you tried installing requirements?")
-    print(f"ImportError: {e}\n")
-    print("Dilithium will work perfectly fine with system randomness")
+from aes256_ctr_drbg import AES256_CTR_DRBG
     
 DEFAULT_PARAMETERS = {
     "dilithium2" : {
@@ -78,18 +72,10 @@ class Dilithium:
         self.drbg = None
         self.random_bytes = os.urandom
     
-    """
-    The following two methods allow us to use deterministic
-    randomness throughout all of Dilithium. This is helpful
-    for the KAT tests more than anything!
-    """
     def set_drbg_seed(self, seed):
         """
         Setting the seed switches the entropy source
         from os.urandom to AES256 CTR DRBG
-            
-        Note: requires pycryptodome for AES impl.
-        (Seemed overkill to code my own AES for Kyber)
         """
         self.drbg = AES256_CTR_DRBG(seed)
         self.random_bytes = self.drbg.random_bytes
@@ -97,9 +83,6 @@ class Dilithium:
     def reseed_drbg(self, seed):
         """
         Reseeds the DRBG, errors if a DRBG is not set.
-        
-        Note: requires pycryptodome for AES impl.
-        (Seemed overkill to code my own AES for Kyber)
         """
         if self.drbg is None:
             raise Warning(f"Cannot reseed DRBG without first initialising. Try using `set_drbg_seed`")
@@ -117,16 +100,6 @@ class Dilithium:
         """
         return Shake256.digest(input_bytes, length)
             
-    """
-    Figure 3 (Supporting algorithms for Dilithium)
-    `_make_hint/_use_hint` is applied to matricies and `_make_hint_poly/_use_hint_poly` 
-    applies to the polynomials, which are elements of the matricies. 
-    
-    `_make_hint_poly/_use_hint_poly` uses the util functions `use_hint/make_hint` 
-    which works on field elements (see utils.py)
-    
-        https://pq-crystals.org/dilithium/data/dilithium-specification-round3-20210208.pdf
-    """  
     def _make_hint(self, v1, v2, alpha):
         matrix = [[self._make_hint_poly(p1, p2, alpha) for p1, p2 in zip(v1.rows[i], v2.rows[i])]
                    for i in range(v1.m)] 
@@ -155,8 +128,6 @@ class Dilithium:
 
     def _sample_in_ball(self, seed, is_ntt=False):
         """
-        Figure 2 (Sample in Ball)        
-            https://pq-crystals.org/dilithium/data/dilithium-specification-round3-20210208.pdf
 
         Create a random 256-element array with τ ±1’s and (256 − τ) 0′s using 
         the input seed ρ (and an SHAKE256) to generate the randomness needed
