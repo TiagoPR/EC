@@ -3,19 +3,41 @@ import hashlib
 class DILITHIUM:
 
     # Parâmetros da técnica DILITHIUM - NIST level 5 - 5+
-    def __init__(self):                                           
-        self.n = 256
+    def __init__(self, nivel):
         self.d = 13
         #2^23 − 2^13 + 1
         self.q = 8380417
-        self.k = 8
-        self.l = 7
-        self.eta = 2
-        self.tau = 60
-        self.beta = 120
-        self.gama_1 = 2^19
-        self.gama_2 = (self.q)-1/32
-        self.omega = 75
+        
+        if nivel == 2:
+            self.n = 128
+            self.k = 4
+            self.l = 4
+            self.eta = 2
+            self.tau = 39 
+            self.beta = 78 
+            self.gama_1 = 2^17
+            self.gama_2 = (self.q)-1/88
+            self.omega = 80 
+        elif nivel == 3:
+            self.n = 192 
+            self.k = 6
+            self.l = 5
+            self.eta = 4
+            self.tau = 49 
+            self.beta = 196 
+            self.gama_1 = 2^19
+            self.gama_2 = (self.q)-1/32
+            self.omega = 55
+        elif nivel == 5:
+            self.n = 256
+            self.k = 8
+            self.l = 7
+            self.eta = 2
+            self.tau = 60
+            self.beta = 120
+            self.gama_1 = 2^19
+            self.gama_2 = (self.q)-1/32
+            self.omega = 75
         
         # Anéis 
         Zx.<x> = ZZ[]
@@ -214,7 +236,7 @@ class DILITHIUM:
         
         return self.norma_inf_vet(z)[0] < self.gama_1 - self.beta and c_ == c
 
-dilithium = DILITHIUM()
+dilithium = DILITHIUM(nivel=3)
 
 message = 'This is the message'
 
